@@ -14,6 +14,7 @@ from setuptools import find_packages, setup
 from distutils.command.build_py import build_py
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
+import numpy as np
 
 classes = """
     Development Status :: 1 - Planning
@@ -44,9 +45,10 @@ setup(name='pywrap-ssw',
       maintainer_email="ebolyen@gmail.com",
       url='https://github.com/biocore/bipy',
       packages=find_packages(),
-      install_requires=['cython >= 0.20.1'],
+      install_requires=['numpy >= 1.5.1', 'cython >= 0.20.1'],
       extras_require={'test': ["nose >= 0.10.1", "pep8"],
                       'doc': ["Sphinx >= 1.1", "sphinx-bootstrap-theme"]},
       classifiers=classifiers,
-      ext_modules = [Extension("ssw", ["ssw_wrapper.pyx", "ssw.c"])])
+      ext_modules = [Extension("ssw_wrapper", ["ssw_wrapper.pyx", "ssw.c"],
+                               include_dirs=[np.get_include()])])
 

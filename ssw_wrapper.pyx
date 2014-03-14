@@ -115,9 +115,10 @@ cdef class StripedSmithWaterman:
     def __init__(self, read_sequence, **kwargs):
         cdef np.int8_t score_size
         score_size = 2
-        cdef np.int8_t* matrix
+        cdef np.ndarray[np.int8_t, ndim=1, mode="c"] matrix
         cdef np.int32_t read_length
         cdef np.int32_t m_width
+        cdef np.ndarray[np.int8_t, ndim=1, mode="c"] read_seq
 
         if 'score_size' in kwargs and kwargs['score_size'] is not None:
             score_size = kwargs['score_size']
@@ -140,9 +141,9 @@ cdef class StripedSmithWaterman:
         m_width = 576 if self.is_protein else 16
         read_seq = self._seq_converter(read_sequence, self.is_protein)
         read_length = len(read_sequence)
-        self.profile = ssw_init(read_seq, 
+        self.profile = ssw_init(<np.int8_t*> read_seq.data, 
                                 read_length, 
-                                matrix, 
+                                <np.int8_t*> matrix.data, 
                                 m_width, 
                                 score_size)
 
@@ -155,7 +156,7 @@ cdef class StripedSmithWaterman:
         pass
 
 
-    cdef np.int8_t* _seq_converter(self, sequence, is_protein):
+    cdef np.ndarray[np.int8_t, ndim=1, mode="c"] _seq_converter(self, sequence, is_protein):
         cdef np.ndarray[np.int8_t, ndim=1, mode="c"] seq = np.empty(len(sequence), dtype=np.int8)
         if is_protein:
             for i, char in enumerate(sequence):
@@ -164,9 +165,9 @@ cdef class StripedSmithWaterman:
             for i, char in enumerate(sequence):
                 seq[i] = np_nt_table[ord(char)]
         print seq
-        return <np.int8_t*> seq.data
+        return seq
 
-    cdef np.int8_t* _build_match_matrix(self, match, mismatch):
+    cdef np.ndarray[np.int8_t, ndim=1, mode="c"] _build_match_matrix(self, match, mismatch):
         sequence_order = "ACGT"
         dict2d = {}
         for row in sequence_order:
@@ -175,7 +176,7 @@ cdef class StripedSmithWaterman:
                 dict2d[row][column] = match if row == column else mismatch
         return self._convert_dict2d_to_matrix(dict2d)
 
-    cdef np.int8_t* _convert_dict2d_to_matrix(self, dict2d):
+    cdef np.ndarray[np.int8_t, ndim=1, mode="c"] _convert_dict2d_to_matrix(self, dict2d):
         if self.is_protein:
             sequence_order = "ARNDCQEGHILKMFPSTWYVBZX*"                  
         else:
@@ -183,12 +184,13 @@ cdef class StripedSmithWaterman:
         i = 0
         length = len(sequence_order)
         cdef np.ndarray[np.int8_t, ndim=1, mode="c"] py_list_matrix = np.empty(length*length, dtype=np.int8)
+        print py_list_matrix.flag['']
         for row in sequence_order:
             for column in sequence_order:
                 py_list_matrix[i] = dict2d[row][column]
                 i+=1
         print py_list_matrix
-        return <np.int8_t*> py_list_matrix.data
+        return py_list_matrix
 
     def _handle_shared_kwargs(self, **kwargs):
         if self.weight_gap_open is None:
@@ -205,7 +207,7 @@ cdef class StripedSmithWaterman:
 
     def __call__(self, reference_sequence, **kwargs):
         profile = self.profile
-        cdef np.int8_t* reference
+        cdef np.ndarray[np.int8_t, ndim=1, mode="c"] reference
         reference = self._seq_converter(reference_sequence, self.is_protein)
         cdef np.int32_t ref_length
         ref_length = len(reference_sequence)
@@ -227,7 +229,7 @@ cdef class StripedSmithWaterman:
         mask_length = 15 # self.mask_length
 
         cdef s_align *align
-        align = ssw_align(profile, reference, ref_length, 
+        align = ssw_align(profile, <np.int8_t*> reference.data, ref_length, 
                           weight_gap_open, weight_gap_extension, 
                           bit_flag, score_filter, distance_filter, 
                           mask_length)
