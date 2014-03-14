@@ -577,10 +577,11 @@ cigar* banded_sw (const int8_t* ref,
 			h_c = (int32_t*)realloc(h_c, s1 * sizeof(int32_t)); 
 		}
 		while (width_d * readLen * 3 >= s2) {
+			fprintf(stderr, "%d\n", s2);
 			++s2;
 			kroundup32(s2);
 			if (s2 < 0) {
-				fprintf(stderr, "Alignment score and position are not consensus.\n");
+				fprintf(stderr, "FUCK Alignment score and position are not consensus.\n");
 				exit(1);
 			}
 			direction = (int8_t*)realloc(direction, s2 * sizeof(int8_t)); 
