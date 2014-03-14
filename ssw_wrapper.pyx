@@ -157,7 +157,7 @@ cdef class StripedSmithWaterman:
 
 
     cdef np.ndarray[np.int8_t, ndim=1, mode="c"] _seq_converter(self, sequence, is_protein):
-        cdef np.ndarray[np.int8_t, ndim=1, mode="c"] seq = np.empty(len(sequence), dtype=np.int8)
+        cdef np.ndarray[np.int8_t, ndim=1, mode="c"] seq = np.zeros(len(sequence), dtype=np.int8)
         if is_protein:
             for i, char in enumerate(sequence):
                 seq[i] = np_aa_table[ord(char)]
@@ -183,8 +183,7 @@ cdef class StripedSmithWaterman:
             sequence_order = "ACGT"
         i = 0
         length = len(sequence_order)
-        cdef np.ndarray[np.int8_t, ndim=1, mode="c"] py_list_matrix = np.empty(length*length, dtype=np.int8)
-        print py_list_matrix.flag['']
+        cdef np.ndarray[np.int8_t, ndim=1, mode="c"] py_list_matrix = np.zeros(length*length, dtype=np.int8)
         for row in sequence_order:
             for column in sequence_order:
                 py_list_matrix[i] = dict2d[row][column]
