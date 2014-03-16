@@ -8,6 +8,7 @@
 # The full license is in the file COPYING.txt, distributed with this software.
 #-----------------------------------------------------------------------------
 
+from collections import namedtuple
 
 import numpy as np
 cimport numpy as np
@@ -18,22 +19,26 @@ from cpython cimport bool
 cdef extern from "ssw.h":
 
     ctypedef struct cigar:
-        unsigned int* seq
-        int length
+        np.uint32_t* seq
+        np.int32_t length
 
     ctypedef struct s_align:
-        unsigned int score1
-        unsigned int score2
-        int ref_begin1
-        int ref_end1
-        int read_begin1
-        int read_end1
-        int ref_end2
-        int* cigar
-        int cigarLen
+        np.uint16_t score1
+        np.uint16_t score2
+        np.int32_t ref_begin1
+        np.int32_t ref_end1
+        np.int32_t read_begin1
+        np.int32_t read_end1
+        np.int32_t ref_end2
+        np.uint32_t* cigar
+        np.int32_t cigarLen
 
     ctypedef struct s_profile:
-        pass
+        const np.int8_t* read
+        const np.int8_t* mat
+        np.int32_t readLen
+        np.int32_t n
+        np.uint8_t bias
 
     cdef s_profile* ssw_init(const np.int8_t* read, 
                              const np.int32_t readLen, 
@@ -87,6 +92,30 @@ cdef class AlignmentStructure:
             print "dealloc alignment"
             align_destroy(self.p)
 
+    cdef _get_cigar(self):
+        for i in range(self.p.cigarLen):
+            print self.p.cigar[i]
+
+    def __str__(self):
+        return "{\n\t'%s':%d\n"\
+                  "\t'%s':%d\n"\
+                  "\t'%s':%d\n"\
+                  "\t'%s':%d\n"\
+                  "\t'%s':%d\n"\
+                  "\t'%s':%d\n"\
+                  "\t'%s':%d\n"\
+                  "\t'%s':%d\n}" % \
+                   (
+                    'score1',self.p.score1,
+                    'score2',self.p.score2,
+                    'ref_begin1',self.p.ref_begin1,
+                    'ref_end1',self.p.ref_end1,
+                    'read_begin1',self.p.read_begin1,
+                    'read_end1',self.p.read_end1,
+                    'ref_end2',self.p.read_end1,
+                    'cigarLen',self.p.cigarLen
+                    )
+
     def __getattr__(self, name):
         if name == 'score1':
             return self.p.score1
@@ -102,15 +131,25 @@ cdef class AlignmentStructure:
             return self.p.read_end1
         if name == 'ref_end2':
             return self.p.ref_end2
-        if name == 'sequence':
-            pass #TODO
+        if name == 'cigar_string':
+            print self._get_cigar()
+        if name == 'cigarLen':
+            print self.p.cigarLen
+        else:
+            raise AttributeError(\
+                "'AlignmentStructure' object has no attribute '%s'" % name)
+
+
 
 cdef class StripedSmithWaterman:
     cdef s_profile *profile
     cdef bool is_protein
-    cdef int weight_gap_open
-    cdef int weight_gap_extension
-
+    cdef np.uint8_t weight_gap_open
+    cdef np.uint8_t weight_gap_extension
+    cdef np.uint8_t bit_flag
+    cdef np.uint16_t score_filter
+    cdef np.int32_t distance_filter
+    cdef np.int32_t mask_length
 
     def __init__(self, read_sequence, **kwargs):
         cdef np.int8_t score_size
@@ -138,14 +177,21 @@ cdef class StripedSmithWaterman:
                 if 'mismatch' in kwargs and kwargs['mismatch'] is not None:
                     mismatch = kwargs['mismatch']
                 matrix = self._build_match_matrix(match, mismatch)
-        m_width = 576 if self.is_protein else 16
+        m_width = 16 if self.is_protein else 4
         read_seq = self._seq_converter(read_sequence, self.is_protein)
         read_length = len(read_sequence)
-        self.profile = ssw_init(<np.int8_t*> read_seq.data, 
+        cdef s_profile* p
+        p = ssw_init(<np.int8_t*> read_seq.data, 
                                 read_length, 
                                 <np.int8_t*> matrix.data, 
                                 m_width, 
                                 score_size)
+        print p.readLen
+        print p.n
+        print p.bias
+
+        self.profile = p
+
 
     def __dealloc__(self):
         if self.profile is not NULL:
@@ -153,11 +199,11 @@ cdef class StripedSmithWaterman:
             init_destroy(self.profile)
 
     def _get_bit_flag(self):
-        pass
+        return self.bit_flag
 
 
     cdef np.ndarray[np.int8_t, ndim=1, mode="c"] _seq_converter(self, sequence, is_protein):
-        cdef np.ndarray[np.int8_t, ndim=1, mode="c"] seq = np.zeros(len(sequence), dtype=np.int8)
+        cdef np.ndarray[np.int8_t, ndim=1, mode="c"] seq = np.empty(len(sequence), dtype=np.int8)
         if is_protein:
             for i, char in enumerate(sequence):
                 seq[i] = np_aa_table[ord(char)]
@@ -183,7 +229,7 @@ cdef class StripedSmithWaterman:
             sequence_order = "ACGT"
         i = 0
         length = len(sequence_order)
-        cdef np.ndarray[np.int8_t, ndim=1, mode="c"] py_list_matrix = np.zeros(length*length, dtype=np.int8)
+        cdef np.ndarray[np.int8_t, ndim=1, mode="c"] py_list_matrix = np.empty(length*length, dtype=np.int8)
         for row in sequence_order:
             for column in sequence_order:
                 py_list_matrix[i] = dict2d[row][column]
@@ -204,8 +250,12 @@ cdef class StripedSmithWaterman:
         if 'weight_gap_extension' in kwargs and kwargs['weight_gap_extension'] is not None:
             self.weight_gap_extension = kwargs['weight_gap_extension']
 
+        if self.bit_flag is None:
+            self.bit_flag = 128
+        if 'bit_flag' in kwargs and kwargs['bit_flag'] is not None:
+            self.bit_flag = kwargs['bit_flag']
+
     def __call__(self, reference_sequence, **kwargs):
-        profile = self.profile
         cdef np.ndarray[np.int8_t, ndim=1, mode="c"] reference
         reference = self._seq_converter(reference_sequence, self.is_protein)
         cdef np.int32_t ref_length
@@ -222,13 +272,13 @@ cdef class StripedSmithWaterman:
 
         weight_gap_open = self.weight_gap_open
         weight_gap_extension = self.weight_gap_extension
-        bit_flag = 1 # self._get_bit_flag()
+        bit_flag = self._get_bit_flag()
         score_filter = 0 # self.score_filter
         distance_filter = 0 # self.distance_filter
         mask_length = 15 # self.mask_length
 
         cdef s_align *align
-        align = ssw_align(profile, <np.int8_t*> reference.data, ref_length, 
+        align = ssw_align(self.profile, <np.int8_t*> reference.data, ref_length, 
                           weight_gap_open, weight_gap_extension, 
                           bit_flag, score_filter, distance_filter, 
                           mask_length)
