@@ -64,26 +64,7 @@
  */
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
-typedef struct {
-	uint16_t score;
-	int32_t ref;	 //0-based position 
-	int32_t read;    //alignment ending position on read, 0-based 
-} alignment_end;
 
-typedef struct {
-	uint32_t* seq;
-	int32_t length;
-} cigar;
-
-struct _profile{
-	__m128i* profile_byte;	// 0: none
-	__m128i* profile_word;	// 0: none
-	const int8_t* read;
-	const int8_t* mat;
-	int32_t readLen;
-	int32_t n;
-	uint8_t bias;
-};
 
 /* Generate query profile rearrange query sequence & calculate the weight of match/mismatch. */
 __m128i* qP_byte (const int8_t* read_num,
@@ -556,6 +537,29 @@ cigar* banded_sw (const int8_t* ref,
 				 int32_t band_width,
 				 const int8_t* mat,	/* pointer to the weight matrix */
 				 int32_t n) {	
+	
+	fprintf(stderr, "refLen: %d\n", refLen);
+	int32_t iiii;
+	for(iiii = 0; iiii < refLen; iiii++) {
+	   fprintf(stderr, "%d, ", ref[iiii]);
+	} 
+	fprintf(stderr, "\n");
+	fprintf(stderr, "readLen: %d\n", readLen);
+	for(iiii = 0; iiii < readLen; iiii++) {
+	   fprintf(stderr, "%d, ", read[iiii]);
+	} 
+	fprintf(stderr, "\n");
+	fprintf(stderr, "score: %d\n", score);
+	fprintf(stderr, "weight_gapO: %d\n", weight_gapO);
+	fprintf(stderr, "weight_gapE: %d\n", weight_gapE);
+	fprintf(stderr, "band_width: %d\n", band_width);
+	fprintf(stderr, "weight_gapE: %d\n", weight_gapE);
+	fprintf(stderr, "matrix width: %d\n", n);
+	for(iiii = 0; iiii < n*n; iiii++) {
+	   fprintf(stderr, "%d, ", mat[iiii]);
+	} 
+	fprintf(stderr, "\n");
+
 
 	uint32_t *c = (uint32_t*)malloc(16 * sizeof(uint32_t)), *c1;
 	int32_t i, j, e, f, temp1, temp2, s = 16, s1 = 8, s2 = 1024, l, max = 0;
@@ -568,6 +572,10 @@ cigar* banded_sw (const int8_t* ref,
 	direction = (int8_t*)malloc(s2 * sizeof(int8_t));
 
 	do {
+
+
+
+
 		width = band_width * 2 + 3, width_d = band_width * 2 + 1;
 		while (width >= s1) {
 			++s1;
@@ -581,7 +589,7 @@ cigar* banded_sw (const int8_t* ref,
 			++s2;
 			kroundup32(s2);
 			if (s2 < 0) {
-				fprintf(stderr, "FUCK Alignment score and position are not consensus.\n");
+				fprintf(stderr, "Alignment score and position are not consensus.\n");
 				exit(1);
 			}
 			direction = (int8_t*)realloc(direction, s2 * sizeof(int8_t)); 
@@ -741,6 +749,19 @@ int8_t* seq_reverse(const int8_t* seq, int32_t end)	/* end is 0-based alignment 
 }
 		
 s_profile* ssw_init (const int8_t* read, const int32_t readLen, const int8_t* mat, const int32_t n, const int8_t score_size) {
+	fprintf(stderr, "readLen: %d\n", readLen);
+	int32_t iiii;
+	for(iiii = 0; iiii < readLen; iiii++) {
+	   fprintf(stderr, "%d, ", read[iiii]);
+	} 
+	fprintf(stderr, "\n");
+	fprintf(stderr, "matrix width: %d\n", n);
+	for(iiii = 0; iiii < n*n; iiii++) {
+	   fprintf(stderr, "%d, ", mat[iiii]);
+	} 
+	fprintf(stderr, "\n");
+	fprintf(stderr, "score size: %d\n", score_size);
+
 	s_profile* p = (s_profile*)calloc(1, sizeof(struct _profile));
 	p->profile_byte = 0;
 	p->profile_word = 0;
@@ -760,6 +781,12 @@ s_profile* ssw_init (const int8_t* read, const int32_t readLen, const int8_t* ma
 	p->mat = mat;
 	p->readLen = readLen;
 	p->n = n;
+
+	fprintf(stderr, "p->readLen: %d\n", p->readLen);
+	for(iiii = 0; iiii < p->readLen; iiii++) {
+	   fprintf(stderr, "%d, ", p->read[iiii]);
+	} 
+	fprintf(stderr, "\n");
 	return p;
 }
 
@@ -778,6 +805,28 @@ s_align* ssw_align (const s_profile* prof,
 					const uint16_t filters,
 					const int32_t filterd,
 					const int32_t maskLen) {
+
+
+	fprintf(stderr, "refLen: %d\n", refLen);
+	int32_t iiii;
+	for(iiii = 0; iiii < refLen; iiii++) {
+	   fprintf(stderr, "%d, ", ref[iiii]);
+	} 
+	fprintf(stderr, "\n");
+	fprintf(stderr, "weight_gapO: %d\n", weight_gapO);
+	fprintf(stderr, "weight_gapE: %d\n", weight_gapE);
+	fprintf(stderr, "flag: %d\n", flag);
+	fprintf(stderr, "filters: %d\n", filters);
+	fprintf(stderr, "filterd: %d\n", filterd);
+	fprintf(stderr, "maskLen: %d\n", maskLen);
+	fprintf(stderr, "prof->readLen: %d\n", prof->readLen);
+	fprintf(stderr, "prof->n: %d\n", prof->n);
+	fprintf(stderr, "prof->bias: %d\n", prof->bias);
+	for(iiii = 0; iiii < prof->readLen; iiii++) {
+	   fprintf(stderr, "%d, ", prof->read[iiii]);
+	} 
+	fprintf(stderr, "\n");
+
 
 	alignment_end* bests = 0, *bests_reverse = 0;
 	__m128i* vP = 0;

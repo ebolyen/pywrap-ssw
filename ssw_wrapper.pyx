@@ -143,6 +143,8 @@ cdef class AlignmentStructure:
 
 cdef class StripedSmithWaterman:
     cdef s_profile *profile
+    cdef np.ndarray __KEEP_IT_IN_SCOPE_read
+    cdef np.ndarray __KEEP_IT_IN_SCOPE_matrix
     cdef bool is_protein
     cdef np.uint8_t weight_gap_open
     cdef np.uint8_t weight_gap_extension
@@ -171,7 +173,7 @@ cdef class StripedSmithWaterman:
             else:
                 #BLASTN defaults
                 match = 2
-                mismatch = -3
+                mismatch = 3
                 if 'match' in kwargs and kwargs['match'] is not None:
                     match = kwargs['match']
                 if 'mismatch' in kwargs and kwargs['mismatch'] is not None:
@@ -181,17 +183,27 @@ cdef class StripedSmithWaterman:
         read_seq = self._seq_converter(read_sequence, self.is_protein)
         read_length = len(read_sequence)
         cdef s_profile* p
+        self.__KEEP_IT_IN_SCOPE_read = read_seq
+        self.__KEEP_IT_IN_SCOPE_matrix = matrix
         p = ssw_init(<np.int8_t*> read_seq.data, 
                                 read_length, 
                                 <np.int8_t*> matrix.data, 
                                 m_width, 
                                 score_size)
-        print p.readLen
-        print p.n
-        print p.bias
+
 
         self.profile = p
+        self.test()
 
+    def test(self):
+        print <int>self.profile
+        print <int> self.profile.read
+        print self.profile.readLen
+        print '----'
+        cdef np.int8_t* ar_ay
+        for i in range(self.profile.readLen):
+            ar_ay = self.profile.read
+            print ar_ay[i]
 
     def __dealloc__(self):
         if self.profile is not NULL:
@@ -256,6 +268,8 @@ cdef class StripedSmithWaterman:
             self.bit_flag = kwargs['bit_flag']
 
     def __call__(self, reference_sequence, **kwargs):
+        self.test()
+
         cdef np.ndarray[np.int8_t, ndim=1, mode="c"] reference
         reference = self._seq_converter(reference_sequence, self.is_protein)
         cdef np.int32_t ref_length
@@ -282,7 +296,8 @@ cdef class StripedSmithWaterman:
                           weight_gap_open, weight_gap_extension, 
                           bit_flag, score_filter, distance_filter, 
                           mask_length)
-        
+        print align.score1
+
         alignment = AlignmentStructure()
         alignment.__constructor__(align)
         return alignment
