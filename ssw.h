@@ -16,28 +16,8 @@
 #include <string.h>
 #include <emmintrin.h>
 
- typedef struct {
-	uint16_t score;
-	int32_t ref;	 //0-based position 
-	int32_t read;    //alignment ending position on read, 0-based 
-} alignment_end;
-
-typedef struct {
-	uint32_t* seq;
-	int32_t length;
-} cigar;
-
 /*!	@typedef	structure of the query profile	*/
-
-struct _profile{
-	__m128i* profile_byte;	// 0: none
-	__m128i* profile_word;	// 0: none
-	const int8_t* read;
-	const int8_t* mat;
-	int32_t readLen;
-	int32_t n;
-	uint8_t bias;
-};
+struct _profile;
 typedef struct _profile s_profile;
 
 /*!	@typedef	structure of the alignment result
@@ -148,4 +128,3 @@ void align_destroy (s_align* a);
 #endif	// __cplusplus
 
 #endif	// SSW_H
-
