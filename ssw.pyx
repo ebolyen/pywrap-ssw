@@ -12,7 +12,7 @@ from cpython cimport bool
 import numpy as np
 cimport numpy as np
 
-cdef extern from "ssw.h":
+cdef extern from "ssw_native.h":
 
     ctypedef struct s_align:
         np.uint16_t score1
