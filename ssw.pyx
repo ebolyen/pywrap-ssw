@@ -1,5 +1,52 @@
 #!/usr/bin/env python
+"""
+Documentation examples (:mod:`ssw`)
+===================================
+.. currentmodule:: ssw
 
+This module is a wrapper for a native c implementation of Striped Smith Waterman AlignmentStructure
+
+Classes
+-------
+
+.. autosummary::
+    :toctree: generated/
+
+    StripedSmithWaterman
+    AlignmentStructure
+
+Functions
+---------
+
+.. autosummary::
+    :toctree: generated/
+
+    striped_smith_waterman_alignment
+
+Examples
+--------
+
+Use the ``StripedSmithWaterman`` object:
+
+>>> from sww import StripedSmithWaterman
+>>> query = StripedSmithWaterman("ACTAAGGCTCTCTACCCCTCTCAGAGA")
+>>> alignment = query("AAAAAACTCTCTAAACTCACTAAGGCTCTCTACCCCTCTTCAGAGAAGTCGA")
+>>> print alignment
+{
+    'optimal_alignment_score': 49,
+    'suboptimal_alignment_score': 24,
+    'target_begin': 18,
+    'target_end_optimal': 45,
+    'target_end_suboptimal': 29,
+    'query_begin': 0,
+    'query_end': 26,
+    'cigar': '20M1D7M',
+    'query_sequence': 'ACTAAGGCTCTCTACCCCTCTCAGAGA',
+    'target_sequence': 'AAAAAACTCTCTAAACTCACTAAGGCTCTCTACCCCTCTTCAGAGAAGTCGA'
+}
+
+
+"""
 #-----------------------------------------------------------------------------
 # Copyright (c) 2014--, biocore team.
 #
@@ -71,6 +118,28 @@ np_nt_table = np.array([
 mid_table = np.array(['M','I','D'])
 
 cdef class AlignmentStructure:
+    """Wraps the result of an alignment c struct so it is accessible to Python
+
+    Attributes
+    ----------
+    optimal_alignment_score
+    suboptimal_alignment_score
+    target_begin
+    target_end_optimal
+    target_end_suboptimal
+    query_begin
+    query_end
+    cigar
+    query_sequence
+    target_sequence
+
+    Notes
+    -----
+    `target_end_suboptimal` will be -1 if there is not a suboptimal aligment
+    `cigar` will be empty depending on paramaters used
+
+
+    """
     cdef s_align *p
     cdef str read_sequence
     cdef str reference_sequence
@@ -88,13 +157,6 @@ cdef class AlignmentStructure:
         if self.p is not NULL:
             align_destroy(self.p)
 
-    cdef _get_cigar(self):
-        cigar_string = ""
-        for i in range(self.p.cigarLen):
-            cigar_string += str(self.p.cigar[i]>>4)
-            cigar_string += mid_table[self.p.cigar[i]&0xf]
-        return cigar_string
-
     def __str__(self):
         return "{\n    '%s': %d,\n"\
                   "    '%s': %d,\n"\
@@ -109,45 +171,161 @@ cdef class AlignmentStructure:
                    (
                     'optimal_alignment_score',self.optimal_alignment_score,
                     'suboptimal_alignment_score',self.suboptimal_alignment_score,
-                    'target_begin',self.target_begin1,
+                    'target_begin',self.target_begin,
                     'target_end_optimal',self.target_end_optimal,
                     'target_end_suboptimal',self.target_end_suboptimal,
-                    'query_begin',self.query_begin1,
-                    'query_end',self.query_end1,
+                    'query_begin',self.query_begin,
+                    'query_end',self.query_end,
                     'cigar',self.cigar,
                     'query_sequence', self.query_sequence,
                     'target_sequence', self.target_sequence
                     )
+    @property 
+    def optimal_alignment_score(self):
+        """Returns the optimal alignment score
 
-    def __getattr__(self, name):
-        index_starts_at =  self.index_starts_at
+        Returns
+        -------
+        int
+            The optimal alignment score
+        """
+        return self.p.score1
 
-        if name == 'optimal_alignment_score':
-            return self.p.score1
-        if name == 'suboptimal_alignment_score':
-            return self.p.score2
-        if name == 'target_begin1':
-            return self.p.ref_begin1 + index_starts_at
-        if name == 'target_end_optimal':
-            return self.p.ref_end1 + index_starts_at
-        if name == 'query_begin1':
-            return self.p.read_begin1 + index_starts_at
-        if name == 'query_end1':
-            return self.p.read_end1 + index_starts_at
-        if name == 'target_end_suboptimal':
-            return self.p.ref_end2 + index_starts_at
-        if name == 'cigar':
-            return self._get_cigar()
-        if name == 'query_sequence':
-            return self.read_sequence
-        if name == 'target_sequence':
-            return self.reference_sequence
-        else:
-            raise AttributeError(\
-                "'AlignmentStructure' object has no attribute '%s'" % name)
+    @property
+    def suboptimal_alignment_score(self):
+        """Returns the suboptimal alignment score
+
+        Returns
+        -------
+        int
+            The suboptimal alignment score
+
+        Notes
+        -----
+        If there is no suboptimal alignment then this will be -1.
+        The result is a 0 based index by default.
+        """
+        return self.p.score2   
+
+    @property
+    def target_begin(self):
+        """Returns in character index at which the target sequence's alignment begins
+
+        Returns
+        -------
+        int
+            The character index of the target sequence's alignment's beginning
+
+        Notes
+        -----
+        The result is a 0 based index by default
+        """
+        return self.p.ref_begin1 + self.index_starts_at
+
+    @property
+    def target_end_optimal(self):
+        """Returns the character index at which the target sequence's optimal alignment ends
+
+        Returns
+        -------
+        int
+            The character index of the target sequence's optimal alignment's end
+
+        Notes
+        -----
+        The result is a 0 based index by default
+        """
+        return self.p.ref_end1 + self.index_starts_at
+
+    @property
+    def target_end_suboptimal(self):
+        """Returns the character index at which the target sequence's suboptimal alignment ends
+
+        Returns
+        -------
+        int
+            The character index of the target sequence's suboptimal alignment's end
+
+        Notes
+        -----
+        The result is a 0 based index by default
+        """
+        return self.p.ref_end2 + self.index_starts_at
+
+    @property
+    def query_begin(self):
+        """Returns the character index at which the query sequence begins
+
+        Returns
+        -------
+        int
+            The character index of the query sequence beginning
+
+        Notes
+        -----
+        The result is a 0 based index by default
+        """
+        return self.p.read_begin1 + self.index_starts_at
+
+    @property 
+    def query_end(self):
+        """Returns the character index at which the query sequence ends
+
+        Returns
+        -------
+        int
+            The character index of the query sequence ending
+
+        Notes
+        -----
+        The result is a 0 based index by default
+        """
+        return self.p.read_end1 + self.index_starts_at
+
+    @property 
+    def cigar(self):
+        """Returns a cigar formatted string for the optimal alignment of the 
+        query and target sequences
+
+        Returns
+        -------
+        str
+            The cigar string of the optimal alignment
+
+        Notes
+        -----
+        If there is no cigar or optimal alignment, this will return an empty string
+        """
+        cigar_string = ""
+        for i in range(self.p.cigarLen):
+            cigar_string += str(self.p.cigar[i]>>4)
+            cigar_string += mid_table[self.p.cigar[i]&0xf]
+        return cigar_string
+
+    @property
+    def query_sequence(self):
+        """Returns the query sequence
+
+        Returns
+        -------
+        str
+            The query sequence
+        """
+        return self.read_sequence
+
+    @property
+    def target_sequence(self):
+        """Returns the target sequence
+
+        Returns
+        -------
+        str
+            The target sequence
+        """
+        return self.reference_sequence
 
     def set_zero_based(self, is_zero_based):
-        """
+        """Set the aligment indices to start at 0 if True else 1 if False
         """
         if is_zero_based:
             self.index_starts_at = 0
@@ -155,7 +333,12 @@ cdef class AlignmentStructure:
             self.index_starts_at = 1
 
     def is_zero_based(self):
-        """
+        """Returns True if alignment indicies start at 0 else False
+
+        Returns
+        -------
+        bool
+            Whether the alignment indicies start at 0
         """
         return self.index_starts_at == 0
 
